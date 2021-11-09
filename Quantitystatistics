@@ -1,0 +1,481 @@
+# coding=utf-8
+from scapy.all import *
+import sys
+import numpy as np
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+class Quantitystatistics(object):
+
+    def __init__(self,pcap):
+        self.Ethernet_pro = {2054: 'ARP', 2048: 'IPV4', 34525: 'IPV6', 35020: 'Logic-linkControl'}
+        self.trans_pro = {'tcp': 0, 'udp': 0}
+        self.pro_len = {'0-19': 0, '20-39': 0, '40-79': 0, '80-159': 0, '160-319': 0, '320-639': 0, '640-1279': 0,'1280-2559': 0, '2560-5119': 0, '5120 and greater': 0}
+        self.time=[]
+        self.id=[]
+        self.map= {}
+        self.countsum=0
+        self.pcap = pcap
+        self.throughputstatistics()
+        #self.syspsall()
+        #self.statisticslength()
+        #self.id,self.time=self.RTTstatistics()
+        #self.id,self.time=self.flowstatistics()
+        #self.plotlinechart()
+    def syspsall(self):
+        iteratime=[]
+        iterakey=[0,0]
+        iteraflag=True
+        transtime=[0,0]
+        transflag=True
+        count=0
+        sum=0
+        while count>-1:
+            count=count+1
+            data=self.pcap.read_packet()
+            if len(data) > 100 :
+               if data.type == 2048 and data.proto == 6:
+                   sum += len(data.payload.payload.payload)
+                   if len(data) < 1514 and data.payload.payload.dport == 2221:
+                      if len(iteratime)<10:
+                          iteratime.append(data.time)
+                      else:
+                          for i in range(1):  ##左移
+                              iteratime.insert(len(iteratime), iteratime[0])
+                              iteratime.remove(iteratime[0])
+                          iteratime[9] = data.time
+                      if len(iteratime)==10 and (max(iteratime)-min(iteratime))<0.1 and iteraflag:
+                          iteraflag=False
+                          iterakey[0]=iterakey[1]
+                          iterakey[1]=iteratime[0]
+                          transflag=True
+                          print(iterakey[1]-iterakey[0],transtime[1]-transtime[0],sum,data.payload.src,data.payload.payload.sport,data.payload.dst,data.payload.payload.dport,data.proto)
+                          sum=0
+                      if (max(iteratime)-min(iteratime))>=0.1:
+                          iteraflag=True
+                   if len(data)==1514 and transflag:
+                       transtime[0]=transtime[1]
+                       transtime[1]=data.time
+                       transflag=False
+                   if transflag==False:
+                       transtime[1] = data.time
+
+    def sysps2(self):
+        start=0
+        count=0
+        inittime=0
+        lasttime=0
+        flag=True
+        sum=0
+        time2=[]
+        length=10
+        lock=False
+
+        while count>-1:
+            count=count+1
+            data=self.pcap.read_packet()
+            if count==1:
+                start = data.time
+                time1 = (data.time,count)
+            if len(data) > 100 :
+               if data.type == 2048 and data.proto == 6:
+
+                   sum += len(data.payload.payload.payload)
+                   if len(data) < 1514 and data.payload.payload.dport == 2221:
+                      if flag:
+                          lasttime=data.time
+                          inittime=data.time
+                          flag=False
+                          lock=True
+                          continue
+                      currenttime=data.time
+                      if (currenttime-lasttime)>4:
+                            print(currenttime-inittime,sum,time2[0]-time1[0],time2[0]-start,count)
+                            sum=0
+                            lasttime = data.time
+                            inittime = data.time
+
+            if len(data)==66:
+                  if len(time2)<length:
+                     time2.append(data.time)
+                  else:
+                      for i in range(1):  ##左移
+                          time2.insert(len(time2), time2[0])
+                          time2.remove(time2[0])
+                      time2[9]=data.time
+
+    def sysps(self):
+        count=0
+        inittime=0
+        endtime=0
+        flag1=True
+        flag2=True
+        sum=0
+        while count<10000000:
+            count=count+1
+            data=self.pcap.read_packet()
+            if count==1:
+                inittime=data.time
+            else:
+             if len(data) > 100:
+               if data.type == 2048 and data.proto == 6:
+                   sum += len(data.payload.payload.payload)
+                   if len(data) < 1514 and data.payload.dst == '192.168.3.7':
+                        #print(count,flag,data.payload.src)
+                        if data.payload.src == '192.168.3.12' and flag1:
+                            if flag2:
+                               endtime = data.time
+                               inittime = data.time
+                            flag1 = False
+                        if data.payload.src == '192.168.3.11' and flag2:
+                            if flag1:
+                               endtime = data.time
+                               inittime = data.time
+                            flag2 = False
+                        if flag1==False and flag2==False:
+                            flag1 = True
+                            flag2 = True
+                            endtime = data.time
+                            if (endtime-inittime)<1:
+                                flag1 = False
+                                flag2 = False
+                            else:
+                               print(endtime-inittime,sum/(endtime-inittime))
+                               sum=0
+    def distributionsynstatistics(self):
+        count=0
+        inittime = 0
+        endtime=0
+        flag=True
+        id=True
+        while count < 14000000:
+            count=count+1
+            data = self.pcap.read_packet()
+            if count==1:
+                inittime = data.time
+            else:
+                if len(data)>1500:
+                    if data.type == 2048 and data.proto == 6:
+                        if data.payload.src == '192.168.3.12' and data.payload.payload.sport == 2221 and data.payload.payload.dport == 34012 and flag:
+                            print(endtime - inittime)
+                            flag=False
+                            inittime=data.time
+                        if data.payload.src == '192.168.3.7' and data.payload.payload.sport == 2227 and data.payload.payload.dport == 38886 and flag==False:
+                            flag=True
+                        if data.payload.src == '192.168.3.7' and data.payload.payload.sport == 2227 and data.payload.payload.dport == 38886:
+                            endtime=data.time
+    def distributionstatistics(self):
+        count=0
+        count1=0
+        count2=0
+        time1=0
+        time2=0
+        sum=0
+        inittime=0
+        initid=2514
+        flag=False
+        while count < 200000:
+            count = count + 1
+            data = self.pcap.read_packet()
+            if count==1:
+                inittime = data.time
+            if count<initid:
+                continue
+            else:
+                if count==initid:
+                    count1=initid
+                    count2=initid
+                    time1=(data.time-inittime)
+                    time2 = time1
+                if flag and len(data)>1500:
+                    if data.type == 2048 and data.proto == 6:
+                        if data.payload.src == '172.22.4.12' and data.payload.payload.sport == 22222 and data.payload.payload.dport == 53216 and len(data)>2800:
+                            flag=False
+                            distance=time2-time1
+                            print("%d-%d:%f-%f(%f)   %d   ps->worker"%(count1,count2,time1,time2,distance,sum))
+                            count1=count
+                            count2=count
+                            time1 = (data.time - inittime)
+                            time2 = time1
+                            sum=0
+                        elif data.payload.src == '172.22.4.11' and data.payload.payload.sport == 2221 and data.payload.payload.dport == 35612 and len(data) > 2800:
+                            sum += len(data.payload.payload.payload)
+                            count2=count
+                            time2=(data.time - inittime)
+                if flag==False and len(data) > 1500:
+                    if data.type == 2048 and data.proto == 6:
+                        if data.payload.src == '172.22.4.11' and data.payload.payload.sport == 2221 and data.payload.payload.dport == 35612 and len(data) > 2800:
+                            flag = True
+                            distance = time2 - time1
+                            print("%d-%d:%f-%f(%f)   %d   worker->ps" % (count1, count2, time1, time2, distance, sum))
+                            count1 = count
+                            count2 = count
+                            time1 = (data.time - inittime)
+                            time2 = time1
+                            sum = 0
+                        elif data.payload.src == '172.22.4.12' and data.payload.payload.sport == 22222 and data.payload.payload.dport == 53216 and len(data)>2800:
+                            sum += len(data.payload.payload.payload)
+                            count2=count
+                            time2=(data.time - inittime)
+
+
+
+    def flowstatistics(self):
+        retlist1 = []
+        retlist2 = []
+        count = 0
+        inittime = 0
+        sum=0
+        t=0
+        while count < 200000:
+            count = count + 1
+            data = self.pcap.read_packet()
+            if count==1:
+                retlist1.append(sum)
+                retlist2.append(t)
+            if count>=24178 and count<=28977:
+                 if count==24178:
+                     inittime = data.time
+                 if len(data) > 1500:
+                   sum += len(data)
+                   if(data.time-inittime)>=0.001:
+                     inittime=inittime+0.001
+                     t=t+0.001
+                     retlist1.append(sum)
+                     retlist2.append(t)
+            if count>28977:
+                break
+        for i in range(len(retlist1)):
+            retlist1[i]=retlist1[i]/sum
+        return retlist2,retlist1
+    def throughputstatistics(self):
+        count = 0
+        retlist1=[]
+        retlist2=[]
+        retlist3=[]
+        inittime=0
+        avgthroughput=0
+        tempbit=0
+        temptime=0
+        retlist2.append(0)
+        retlist3.append(0)
+        sum1=0
+        sum2 = 0
+        while count < 500000:
+            data = self.pcap.read_packet()
+            if count==0:
+                inittime=data.time
+            count = count + 1
+            if 'type' not in dir(data):
+                continue
+            if data.type == 2048 and data.proto == 6:
+               if data.payload.src == '192.168.3.64' and data.payload.payload.sport == 2227 and data.payload.payload.dport == 47036:
+                 retlist1.append(data)
+               if data.payload.src == '192.168.3.12' and data.payload.payload.sport == 2221 and data.payload.payload.dport == 34494:
+                 retlist1.append(data)
+        for i in range(len(retlist1)):
+            if(retlist1[i].time-inittime)<0.01:
+                print(i,retlist1[i].time-inittime)
+                tempbit+=(len(retlist1[i].payload.payload.payload)*8)
+            else:
+                temptime+=0.01
+                inittime+=0.01
+                avgthroughput=float(tempbit)/0.01
+                tempbit = 0
+                retlist2.append(temptime)
+                retlist3.append(avgthroughput)
+        with open("time.txt", "w") as f1:
+            for i in range(len(retlist2)):
+                f1.write(str(retlist2[i])+'\n')
+                #f1.write('\r\n')
+        f1.close()
+        with open("throughput.txt", "w") as f:
+            for i in range(len(retlist3)):
+                f.write(str(retlist3[i])+'\n')
+                #f.write('\r\n')
+        f.close()
+        return retlist2,retlist3
+
+    def Packet_lossstatistics(self):
+        retlist1=[]
+        retlist2=[]
+        retlist3=[]
+        count=0.0
+        inittime = 0
+        endtime=0
+        for data in self.pcap:
+            count=count+1
+            if count==1:
+                inittime=data.time
+            if 'type' not in dir(data):
+                continue
+            if data.type == 2048 and data.proto == 6:
+                if data.payload.src == '192.168.3.12':
+                    retlist1.append(data)
+                if data.payload.src == '192.168.3.64':
+                    retlist2.append(data)
+            endtime=data.time
+        loss_packet =[0]*(int((endtime-inittime)/0.001)+1)
+        for i in range(len(retlist1)-1):
+            if (retlist1[i].seq+len(retlist1[i].payload.payload.payload))!=retlist1[i+1].seq:
+                temptime=retlist1[i+1].time-inittime
+                num=int(temptime/0.001)
+                loss_packet[num]+=1
+        for i in range(len(retlist2) - 1):
+            if (retlist2[i].seq + len(retlist2[i].payload.payload.payload)) != retlist2[i + 1].seq:
+                temptime = retlist2[i + 1].time - inittime
+                num = int(temptime / 0.001)
+                loss_packet[num] += 1
+        num=0
+        while num<(endtime-inittime):
+            retlist3.append(num)
+            num+=0.001
+        sum=0.0
+        for item in loss_packet:
+            sum+=item
+        #return loss_packet,retlist3
+        return 2*sum/count
+    def Ethernet_prostatistics(self):
+        count=0
+        while count<1112780:
+            count=count+1
+            self.countsum += 1
+            data = self.pcap.read_packet()
+            if data is None:
+                break
+            else:
+                if 'type' not in dir(data):
+                    continue
+                else:
+                    if data.type in self.map.keys():
+                        self.map[data.type]+=1
+                        continue
+                    self.map[data.type]=1
+        return self.map
+    def IP_prostatistics(self):
+        count = 0
+        while count < 200000:
+            count = count + 1
+            self.countsum += 1
+            data = self.pcap.read_packet()
+            if data is None:
+                break
+            else:
+                if 'type' not in dir(data):
+                    continue
+                else:
+                    if data.type in self.map.keys():
+                        self.map[data.type] += 1
+                        if data.type == 0x0800:
+                            if data.proto == 6:
+                                self.trans_pro['tcp'] += 1
+                                # print('tcp get at ',count)
+                            elif data.proto == 17:
+                                self.trans_pro['udp'] += 1
+                                # print('udp get at ',count)
+                        continue
+                    self.map[data.type] = 1
+        return  self.trans_pro
+    def len_statistics(self):
+        count = 0
+        while count < 200000:
+            count = count + 1
+            self.countsum += 1
+            data = self.pcap.read_packet()
+            if data is None:
+                break
+            else:
+                    Len = len(data)
+                    if 0 <= Len and Len <= 19:
+                        self.pro_len['0-19'] += 1
+                    elif 20 <= Len and Len <= 39:
+                        self.pro_len['20-39'] += 1
+                    elif 40 <= Len and Len <= 79:
+                        self.pro_len['40-79'] += 1
+                    elif 80 <= Len and Len <= 159:
+                        self.pro_len['80-159'] += 1
+                    elif 160 <= Len and Len <= 319:
+                        self.pro_len['160-319'] += 1
+                    elif 320 <= Len and Len <= 639:
+                        self.pro_len['320-639'] += 1
+                    elif 640 <= Len and Len <= 1279:
+                        self.pro_len['640-1279'] += 1
+                    elif 1280 <= Len and Len <= 2559:
+                        self.pro_len['1280-2559'] += 1
+                    elif 2560 <= Len and Len <= 5119:
+                        self.pro_len['2560-5119'] += 1
+                    else:
+                        self.pro_len['5120 and greater'] += 1
+        return self.pro_len
+    def RTTstatistics(self):
+        count=0
+        srcnum=0
+        retlist1=[]
+        retlist2=[]
+        retlist3=[]
+        time=[]
+        id=[]
+        while count<200000:
+            count=count+1
+            data = self.pcap.read_packet()
+            if 'type' not in dir(data):
+                continue
+            if data.type == 2048 and data.proto == 6:
+                if data.payload.src=='172.22.4.11'and len(data.payload.payload.payload)!=0 and data.payload.payload.sport==2221 and data.payload.payload.dport==35612:
+                    srcnum+=1
+                    retlist1.append(data)
+                if data.payload.src=='172.22.4.12' and srcnum!=0 and len(data.payload.payload.payload)==0 and data.payload.payload.sport==35612 and data.payload.payload.dport==2221:
+                    retlist2.append(data)
+        for i in range(len(retlist1)):
+            if (retlist1[i].seq+len(retlist1[i].payload.payload.payload))==retlist2[0].ack:
+                while len(retlist3):
+                    time.append(retlist2[0].time - retlist3[0][0].time)
+                    id.append(retlist3[0][1])
+                    del (retlist3[0])
+                time.append(retlist2[0].time-retlist1[i].time)
+                id.append(i)
+                if len(retlist2)==1:
+                    break
+                while retlist2[0].ack==retlist2[1].ack:
+                    del (retlist2[0])
+                del (retlist2[0])
+            elif  retlist1[i].time>retlist2[0].time:
+                    while len(retlist3):
+                      time.append(retlist2[0].time - retlist3[0][0].time)
+                      id.append(retlist3[0][1])
+                      del (retlist3[0])
+                    del (retlist2[0])
+                    i=i-1
+            else:
+                 retlist3.append((retlist1[i],i))
+        return id,time
+
+
+    def statisticslength(self):
+        count = 0
+        sum=0
+        while count < 200000:
+            count = count + 1
+            data = self.pcap.read_packet()
+            if 'type' not in dir(data):
+                continue
+            if count>=28979 and count<=34063 :
+              if data.type == 2048 and data.proto == 6:
+                if data.payload.src == '172.22.4.12' and data.payload.payload.sport == 22222 and data.payload.payload.dport == 53216:
+                    sum += len(data.payload.payload.payload)
+        print(sum)
+    def plotlinechart(self):
+            plt.plot(self.id, self.time)
+            plt.show()
+    def plotPiechart(self):
+        label=[]
+        count=[]
+        for key in self.Ethernet_pro:
+             label.append(key)
+             count.append(self.pro_len[key])
+        fig = plt.figure()
+        plt.pie(count, labels=label, autopct='%1.2f%%')  # 画饼图（数据，数据对应的标签，百分数保留两位小数点）
+        plt.title("Pie chart")
+        plt.show()
+
+
+
