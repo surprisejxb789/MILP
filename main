@@ -1,0 +1,10 @@
+from scapy.all import *
+#需下载第三方库scapy
+import Quantitystatistics
+
+if __name__ == '__main__':
+        name='E:\\flow\\flow.pcap'
+        s1=PcapReader(name)
+        map=Quantitystatistics.Quantitystatistics(s1)
+        s1.close()
+
